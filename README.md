@@ -2,6 +2,9 @@
 
 This repository contains a high-performance, completely offline, Windows standalone executable bridging a Python backend with a HTML/JS/CSS frontend via **PyWebView**. 
 
+
+<video src="demo/demo.mp4" controls="controls" muted="muted" style="max-width: 100%;"></video>
+
 ## Setup and Architecture
 
 - **Backend**: `main.py`
