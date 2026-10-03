@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIA - Embedded PDF Extractor</title>
+  
+  <!-- Offline Air-Gapped Assets (Zero Data Leaks) -->
+  <script src="assets/lucide.min.js"></script>
+  <script src="assets/gsap.min.js"></script>
+
+  <style>
+    :root {
+      /* Shared Brand Colors */
+      --brand-primary: #D31145;
+      --brand-primary-hover: #b50e3a;
+      --brand-primary-light: rgba(211, 17, 69, 0.08);
+      --brand-primary-glow: rgba(211, 17, 69, 0.25);
+      --red-bright: #ff5c7c;
+      --red-deep: #6e0d2c;
+      
+      /* Light Mode Palette */
+      --bg-canvas: #F8FAFC;
+      --bg-card: #FFFFFF;
+      --text-main: #333D47;
+      --text-muted: #626D77;
+      --slate-border: rgba(51, 61, 71, 0.12);
+      --header-bg: rgba(255, 255, 255, 0.88);
+      --dropzone-bg: #FFFFFF;
+      --dropzone-hover-bg: #FFFDFD;
+      --queue-header-bg: #FCFDFE;
+      --track-bg: #EBF0F5;
+      --ambient-mesh-opacity: 0.03;
+
+      /* Intro Stage Palette */
+      --bg-core: #120a0d;
+      --bg-mid: #0a0808;
+      --bg-outer: #050405;
+      --ink: #F4EFE9;
+      --ink-dim: rgba(244, 239, 233, 0.46);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+      
+      --shadow-subtle: 0 4px 20px -2px rgba(51, 61, 71, 0.05);
+      --shadow-elevated: 0 12px 36px -4px rgba(51, 61, 71, 0.09);
+      
+      --font-sans: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'Segoe UI Mono', monospace;
+    }
+
+    /* Dark Mode Palette */
+    [data-theme="dark"] {
+      --bg-canvas: #151A1E;
+      --bg-card: #1F262D;
+      --text-main: #F4EFE9;
+      --text-muted: #9BA5B0;
+      --slate-border: rgba(255, 255, 255, 0.09);
+      --header-bg: rgba(27, 34, 41, 0.85);
+      --dropzone-bg: #1B2228;
+      --dropzone-hover-bg: #232B33;
+      --queue-header-bg: #1A2026;
+      --track-bg: #14181C;
+      --brand-primary-light: rgba(211, 17, 69, 0.18);
+      --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+      --shadow-elevated: 0 12px 36px -4px rgba(0, 0, 0, 0.4);
+      --ambient-mesh-opacity: 0.07;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ================= INTRO STAGE ================= */
+    #stage{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 44%, var(--bg-core) 0%, var(--bg-mid) 55%, var(--bg-outer) 100%);
+    will-change:opacity, transform;
+  }
+
+  canvas#particles{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+  }
+
+  .flash{
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle at 50% 45%,
+      rgba(255,255,255,1) 0%,
+      rgba(255,92,124,0.6) 15%,
+      rgba(211,17,69,0.2) 40%,
+      rgba(211,17,69,0) 70%);
+    opacity:0;
+    mix-blend-mode:screen;
+    pointer-events:none;
+  }
+
+  .ring{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:200px;
+    height:200px;
+    margin:-100px 0 0 -100px;
+    border-radius:50%;
+    border:1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 0 15px rgba(255, 92, 124, 0.6), 
+                inset 0 0 20px rgba(255, 92, 124, 0.4), 
+                0 0 60px rgba(211, 17, 69, 0.5);
+    opacity:0;
+    transform:scale(0.3);
+    pointer-events:none;
+  }
+
+  .mark-wrap{
+    position:relative;
+    z-index:2;
+    line-height:0;
+  }
+
+  #logo{
+    width:clamp(92px, 13vw, 184px);
+    height:auto;
+    display:block;
+    opacity:0;
+    transform:scale(0.92);
+    filter: drop-shadow(0 0 12px rgba(255,92,124,0.7)) drop-shadow(0 0 40px rgba(211,17,69,0.4));
+  }
+
+  #logo path{
+    fill:var(--brand-primary);
+  }
+
+  .wordmark{
+    position:relative;
+    z-index:2;
+    margin-top:clamp(16px, 2.6vw, 26px);
+    font-family:var(--wordmark-font);
+    font-weight:600;
+    font-size:clamp(12px, 1.4vw, 16px);
+    color:var(--ink);
+    letter-spacing:0.6em;
+    text-indent:0.14em;
+  }
+
+  .wordmark span{
+    display:inline-block;
+    opacity:0;
+    transform:translateY(9px);
+  }
+
+  .tagline{
+    position:relative;
+    z-index:2;
+    margin-top:clamp(8px, 1.2vw, 12px);
+    font-family:var(--wordmark-font);
+    font-weight:400;
+    font-size:clamp(8px, 0.9vw, 11px);
+    color:var(--ink);
+    letter-spacing:0.36em;
+    text-indent:0.22em;
+    text-align:center;
+    white-space:nowrap;
+    opacity:0;
+    transform:translateY(8px);
+  }
+
+  .skip-hint{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:clamp(20px, 5vh, 36px);
+    text-align:center;
+    font-family:var(--wordmark-font);
+    font-size:11px;
+    font-weight:400;
+    letter-spacing:0.02em;
+    color:var(--ink-dim);
+    opacity:0;
+    pointer-events:none;
+  }
+
+  html.fallback #logo{
+    transition:opacity 0.7s ease, transform 0.7s ease;
+  }
+  html.fallback .wordmark{
+    transition:letter-spacing 0.6s ease;
+  }
+  html.fallback .wordmark span{
+    transition:opacity 0.5s ease, transform 0.5s ease;
+  }
+  html.fallback .tagline{
+    transition:opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s, letter-spacing 0.6s ease 0.15s;
+  }
+  html.fallback.reveal #logo{
+    opacity:1;
+    transform:scale(1);
+  }
+  html.fallback.reveal .wordmark{
+    letter-spacing:0.14em;
+  }
+  html.fallback.reveal .wordmark span{
+    opacity:1;
+    transform:translateY(0);
+  }
+  html.fallback.reveal .tagline{
+    opacity:0.75;
+    transform:translateY(0);
+    letter-spacing:0.22em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ring, .flash{ display:none; }
+  }/* ================= MAIN APPLICATION ================= */
+    #app-root {
+      opacity: 0;
+      visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    .ambient-mesh {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 10% 10%, rgba(211, 17, 69, var(--ambient-mesh-opacity)) 0%, transparent 40%),
+        radial-gradient(circle at 90% 90%, rgba(51, 61, 71, var(--ambient-mesh-opacity)) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 48px;
+      background: var(--header-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--slate-border);
+    }
+
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-logo-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-logo-icon svg {
+      width: 28px;
+      height: auto;
+    }
+
+    .header-logo-icon path {
+      fill: var(--brand-primary);
+    }
+
+    .brand-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    .brand-name span {
+      color: var(--brand-primary);
+    }
+
+    .brand-sub {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-card);
+      border: 1px solid var(--slate-border);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10B981;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Theme Toggle Button */
+    .theme-toggle-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--slate-border);
+      background: var(--bg-card);
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-subtle);
+      outline: none;
+    }
+
+    .theme-toggle-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--brand-primary);
+      color: var(--brand-primary);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      max-width: 880px;
+      width: 100%;
+      margin: 44px auto;
+      padding: 0 24px;
+    }
+
+    .view-stage {
+      display: none;
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    .view-stage.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .heading-large {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .sub-text {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* Stage 1: Intake Dropzone & Queue */
+    .intake-container {
+      margin-top: 32px;
+      position: relative;
+    }
+
+    .drop-surface {
+      background: var(--dropzone-bg);
+      border: 2px dashed var(--slate-border);
+      border-radius: var(--radius-lg);
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .drop-surface:hover, .drop-surface.dragover {
+      border-color: var(--brand-primary);
+      background: var(--dropzone-hover-bg);
+      box-shadow: 0 12px 32px -4px var(--brand-primary-light);
+    }
+
+    .drop-icon-container {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: var(--brand-primary-light);
+      color: var(--brand-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      transition: transform 0.2s ease;
+    }
+
+    .drop-surface:hover .drop-icon-container {
+      transform: scale(1.08);
+    }
+
+    .queue-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--slate-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-elevated);
+      overflow: hidden;
+      display: none;
+      opacity: 0;
+    }
+
+    .queue-header {
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--slate-border);
+      background: var(--queue-header-bg);
+    }
+
+    .badge-counter {
+      background: var(--brand-primary);
+      color: #FFF;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    .file-stream-list {
+      max-height: 250px;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .file-stream-item {
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--slate-border);
+      font-size: 0.92rem;
+    }
+
+    .file-stream-item:last-child {
+      border-bottom: none;
+    }
+
+    .file-name-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .queue-actions-footer {
+      padding: 20px 28px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--slate-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Shared Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px 28px;
+      border-radius: var(--radius-pill);
+      font-size: 0.94rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: var(--brand-primary);
+      color: #FFFFFF;
+      box-shadow: 0 4px 16px var(--brand-primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-primary-hover);
+      box-shadow: 0 6px 20px rgba(211, 17, 69, 0.38);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--slate-border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--track-bg);
+      border-color: var(--text-muted);
+    }
+
+    /* Stage 2: Processing */
+    .process-card {
+      background: var(--bg-card);
+      border: 1px solid var(--slate-border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      box-shadow: var(--shadow-elevated);
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .progress-percentage {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      letter-spacing: -0.04em;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: var(--track-bg);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand-primary) 0%, #ff4b7a 100%);
+      border-radius: var(--radius-pill);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .engine-terminal {
+      background: #14181C;
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      color: #FFF;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+
+    .terminal-pulse {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #94A3B8;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .terminal-active-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .terminal-active-line .accent {
+      color: #F43F5E;
+    }
+
+    /* Stage 3: Results */
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: var(--radius-pill);
+      color: #059669;
+      font-weight: 700;
+      font-size: 0.88rem;
+      margin-bottom: 16px;
+    }
+
+    .stats-matrix {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin: 32px 0 40px 0;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--slate-border);
+      border-radius: var(--radius-md);
+      padding: 28px;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .stat-card .label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
+    .stat-card .value {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      margin-top: 6px;
+    }
+
+    .results-cta-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .ring, .flash { display: none; }
+    }
+    /* Hide scrollbars but allow scrolling */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    /* P0 Performance: Virtualize the queue rendering for 1000+ files */
+    .file-item {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 54px;
+    }
+\n  </style>
+</head>
+<body>
+
+
+  <!-- ================= ANIMATED INTRO SCREEN ================= -->
+  <div id="stage">
+  <canvas id="particles" aria-hidden="true"></canvas>
+  <div class="flash" aria-hidden="true"></div>
+  <div class="ring" aria-hidden="true"></div>
+
+  <div class="mark-wrap">
+    <svg id="logo" viewBox="0 0 40.6 43.3" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AIA">
+      <path d="M38.2,20.3c-1.7,0.4-2.2-1.1-3.6-2.1c-1.4-0.9-2.7-1.3-4-2.6c-0.5-0.5-0.7-1.4-1.2-2 c-0.7-0.7-1.1-1-2.1-1.3c-1.7-0.6-3.1-1.1-4.5-2.3c-0.2-0.2-0.8-0.4-1.3-0.5c-0.2,0-0.3,0-0.4,0.1c-0.2,0.3-0.4,0.6-0.6,0.9 c-0.1,0.1-0.2,0.3-0.4,0.5c-0.3,0.2-0.6,0.6-0.9,0.7c-1.4,0.9-3.2,1.6-4,3c-0.1,0.3-1.7,1-2,1.2c-0.6,0.5-1.1,0.9-1.7,1.3 c-0.5,0.4-1.3,1-1.8,1.4c-0.3-0.1-0.6-0.2-0.9-0.2c-0.7-0.1-1.2-0.6-1.8-1c-0.7-0.5-0.7-0.5-0.9-0.6c-0.2-0.1-0.3-0.2-0.4-0.2 c-0.5-0.3-0.6,0-1.3,0.5c-0.6,0.4-1.4,1-1.9,1.5c-0.4,0.4-0.9,0.8-1.3,1.3c0.7-9.8,9-17.6,19.1-17.6c10.1,0,18.3,7.6,19.1,17.3 C39.1,20,38.7,20.2,38.2,20.3z M20.3,0C9.1,0,0,9.1,0,20.2c0,4.7,1.6,8.9,4.2,12.3l0.6-0.5c-1.5-2-2.6-4.3-3.2-6.8 c0.2,0,0.4,0.1,0.7,0.2c1.1,0.4,3.3,1.1,4.8,0.4c1-0.5,2.7-0.8,3.3-1.1c0.6-0.3,1.9,0.3,0.4-0.7h0c0,0,0,0-0.1,0 c-0.1,0-0.1,0-0.2,0c-0.1,0-1.4,0.2-1.7,0.2c-0.1,0-0.2,0-0.2-0.1C8,23.8,10.9,21.6,11,21c-0.8,0.1-1.5,0.6-2.2,0.9 c-0.9,0.4-1.8,0.4-2.7,0.4c-1.1,0-1.9,0.8-2.8,1.2c-0.5,0.2-1.3,0.4-1.8,0.7c0-0.2-0.1-0.5-0.1-0.7c0-0.4,0.1-0.9,0.2-1.4 c0.2-1.2,0.7-2.1,1.8-3.6c0,0,1.1-1.3,1.7-1.7c0.2-0.2,0.5-0.4,0.8-0.2c0.3,0.2-0.1,1.2,0.6,1.4c0.4,0.1,0.1,0.8,0.2,1.2 c0.2,0.4-1.8,2.2-1.3,2.4c0.3,0.1,1.6-0.5,2.3-0.8c0.6-0.2,1.3-0.2,1.9-0.8c0.7-0.6,1.4-1,1.4-1c0.6-0.5,1.1-0.9,1.6-1.4 c0.5-0.5,1-0.9,1.6-1.4c0.3-0.3,1.8-1.1,1.9-1.4c0.7-1.5,2.5-2.3,3.8-3.3c0.2-0.2,0.5-0.5,0.7-0.7c0.2-0.2,0.3-0.5,0.4-0.6 C21,10,21,9.8,21.2,9.8c0.1,0,0.4,0,0.5,0.1c0.4,0.5,1,0.9,1,1.3c0,0.7,2.1,1.4,2.6,2c0.2,0.2,0.3,0.5,0.4,0.7 c-0.4-0.1-0.7-0.3-1-0.5c-0.2-0.2-0.7-0.1-1-0.2c-0.7-0.1-0.6,0.2-0.2,0.6c0.4,0.4,0.9,0.8,1.3,1.3c0.4,0.5,0.4,1,0.5,1.6 c0.1,0.7,0.5,1.3,0.9,1.9c0.3,0.6,0.3,1.2,0.5,1.9c0.2,0.6,0.8,1.2,1.2,1.7c0.4,0.4,1.3,1.4,1.8,1.2c0.5-0.2,1.2,0.4,1.3,0.2 c0.2-0.2-0.5-1-0.2-1.2c0.3-0.3,1.5,0.1,1.7,0.9c0.3,0.9,0.2,1,0.2,1.6c0,0.4-0.2,0.8-0.5,1.1c-0.4,0.3-1.2,0.9-1,1.5 c0.7-0.4,1.6-0.4,2.4-0.4c0.8,0,1.4-0.3,1.9-0.9c0.2-0.3,0.9-1.1,1.3-0.6c0.2,0.2-0.5,1.2,0.3,1c0.5-0.1,1-0.5,1.4-0.8 c0.1-0.1,0.2-0.1,0.3-0.2c-0.6,2.5-1.7,4.8-3.2,6.9l0.6,0.5c2.7-3.4,4.3-7.7,4.3-12.4C40.6,9.1,31.5,0,20.3,0z M13.1,32.2 c0,0.2-0.3,2.1-0.7,4.1c-0.6-0.1-1.2-0.4-1.9-0.7c-0.7-0.4-1.2-0.7-1.6-1.2c1.6-1.4,3-2.6,3.1-2.7c0.4-0.4,0.6-0.4,0.8-0.3 C13.1,31.4,13.1,31.6,13.1,32.2z M14.2,29.2c0,0,0,0-0.1-0.1c-0.1,0-0.1,0-0.1-0.1c0,0,0,0,0,0c-1-0.5-1.9-0.5-3,0.3 c-1.5,1.1-8.7,7.1-8.7,7.1l2.1,1.8c0,0,1.2-1,2.6-2.2c0.7,0.6,1.5,1.2,2.4,1.7c0.9,0.5,1.8,0.8,2.6,1.1l-0.5,3.4L14,43 c0,0,1.4-9.3,1.5-11.1C15.6,30.5,15.1,29.7,14.2,29.2z M18.9,43.3h2.7V30.1h-2.7L18.9,43.3L18.9,43.3z M29.8,35.5 c-0.7,0.4-1.3,0.6-1.9,0.7c-0.3-2-0.6-3.9-0.7-4.1c-0.1-0.5,0-0.8,0.2-0.9c0.2-0.1,0.4,0,0.8,0.3c0.2,0.2,1.6,1.4,3.1,2.7 C31,34.8,30.5,35.2,29.8,35.5z M26.3,29.1c0,0,0,0-0.1,0.1c-0.1,0-0.1,0-0.1,0c-0.9,0.5-1.4,1.3-1.3,2.7 c0.1,1.8,1.5,11.1,1.5,11.1l2.6-0.8l-0.5-3.3c0.9-0.3,1.8-0.6,2.7-1.1c0.9-0.5,1.7-1,2.3-1.7c1.4,1.2,2.6,2.2,2.6,2.2l2.1-1.8 c0,0-7.2-6.1-8.7-7.2C28.2,28.6,27.3,28.6,26.3,29.1z M23.9,24.3c-0.2-0.2-0.7-0.6-1-1.4c-0.2-0.7-0.6-1.3-1.2-1.8 c-1.1-0.8-3.6-2.1-3.4-3.8c0.1-0.8,1-0.9,1.4-1.5c0.2-0.3,0.3-0.8,0.5-1.1c0.3-0.3-0.1-0.3-0.4-0.4c-0.6,0-1.1,0.7-1.6,1 c-0.9,0.5-1.7,1.1-2.6,1.3c-0.3,0.1-1.8,0.5-0.8,0.8c0.7,0.2,1.4,0.1,1.9,0.6c0.7,0.6,1.3,1.4,2,2c0.4,0.3,0.7,0.6,1,1 c0.3,0.4,0.3,0.9,0.5,1.4c0.2,0.4,0.7,0,1,0.3c1,0.8-0.4,1.2-0.7,1.5c-0.5,0.5-0.5,0.8-1.4,1.1c-0.4,0.1-2.7,0.4-3,0.6 c-0.3,0.2-0.1,0.3-0.1,0.4c0.1,0.1,0.5,0.2,0.7,0.2c1,0.1,4,0.7,4.7-0.1c0.4-0.5,1.1-0.6,1.8-0.4c0.5,0.1,1.5,0,2.3-0.3 c0.5-0.2,1.9-0.2,1.5-0.4C26.4,24.3,24.8,25,23.9,24.3L23.9,24.3z"></path>
+    </svg>
+  </div>
+
+  <div class="wordmark" aria-hidden="true"><span>A</span><span>I</span><span>A</span></div>
+  <div class="tagline">HEALTHIER, LONGER, BETTER LIVES</div>
+
+  <div class="skip-hint">Press any key to skip</div>
+</div>
+
+  <!-- ================= APP WRAPPER ================= -->
+  
+  <div id="loading-screen" style="position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-canvas); opacity: 0;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+    </svg>
+    <p style="margin-top: 16px; font-weight: 500; color: var(--text-main);">Initializing Workspace...</p>
+    <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+  </div>
+
+  <div id="app-root">
+    <div class="ambient-mesh"></div>
+
+    <header id="main-header">
+      <div class="brand-mark">
+        <div class="header-logo-icon">
+          <svg viewBox="0 0 40.6 43.3" xmlns="http://www.w3.org/2000/svg">
+            <path d="M38.2,20.3c-1.7,0.4-2.2-1.1-3.6-2.1c-1.4-0.9-2.7-1.3-4-2.6c-0.5-0.5-0.7-1.4-1.2-2 c-0.7-0.7-1.1-1-2.1-1.3c-1.7-0.6-3.1-1.1-4.5-2.3c-0.2-0.2-0.8-0.4-1.3-0.5c-0.2,0-0.3,0-0.4,0.1c-0.2,0.3-0.4,0.6-0.6,0.9 c-0.1,0.1-0.2,0.3-0.4,0.5c-0.3,0.2-0.6,0.6-0.9,0.7c-1.4,0.9-3.2,1.6-4,3c-0.1,0.3-1.7,1-2,1.2c-0.6,0.5-1.1,0.9-1.7,1.3 c-0.5,0.4-1.3,1-1.8,1.4c-0.3-0.1-0.6-0.2-0.9-0.2c-0.7-0.1-1.2-0.6-1.8-1c-0.7-0.5-0.7-0.5-0.9-0.6c-0.2-0.1-0.3-0.2-0.4-0.2 c-0.5-0.3-0.6,0-1.3,0.5c-0.6,0.4-1.4,1-1.9,1.5c-0.4,0.4-0.9,0.8-1.3,1.3c0.7-9.8,9-17.6,19.1-17.6c10.1,0,18.3,7.6,19.1,17.3 C39.1,20,38.7,20.2,38.2,20.3z M20.3,0C9.1,0,0,9.1,0,20.2c0,4.7,1.6,8.9,4.2,12.3l0.6-0.5c-1.5-2-2.6-4.3-3.2-6.8 c0.2,0,0.4,0.1,0.7,0.2c1.1,0.4,3.3,1.1,4.8,0.4c1-0.5,2.7-0.8,3.3-1.1c0.6-0.3,1.9,0.3,0.4-0.7h0c0,0,0,0-0.1,0 c-0.1,0-0.1,0-0.2,0c-0.1,0-1.4,0.2-1.7,0.2c-0.1,0-0.2,0-0.2-0.1C8,23.8,10.9,21.6,11,21c-0.8,0.1-1.5,0.6-2.2,0.9 c-0.9,0.4-1.8,0.4-2.7,0.4c-1.1,0-1.9,0.8-2.8,1.2c-0.5,0.2-1.3,0.4-1.8,0.7c0-0.2-0.1-0.5-0.1-0.7c0-0.4,0.1-0.9,0.2-1.4 c0.2-1.2,0.7-2.1,1.8-3.6c0,0,1.1-1.3,1.7-1.7c0.2-0.2,0.5-0.4,0.8-0.2c0.3,0.2-0.1,1.2,0.6,1.4c0.4,0.1,0.1,0.8,0.2,1.2 c0.2,0.4-1.8,2.2-1.3,2.4c0.3,0.1,1.6-0.5,2.3-0.8c0.6-0.2,1.3-0.2,1.9-0.8c0.7-0.6,1.4-1,1.4-1c0.6-0.5,1.1-0.9,1.6-1.4 c0.5-0.5,1-0.9,1.6-1.4c0.3-0.3,1.8-1.1,1.9-1.4c0.7-1.5,2.5-2.3,3.8-3.3c0.2-0.2,0.5-0.5,0.7-0.7c0.2-0.2,0.3-0.5,0.4-0.6 C21,10,21,9.8,21.2,9.8c0.1,0,0.4,0,0.5,0.1c0.4,0.5,1,0.9,1,1.3c0,0.7,2.1,1.4,2.6,2c0.2,0.2,0.3,0.5,0.4,0.7 c-0.4-0.1-0.7-0.3-1-0.5c-0.2-0.2-0.7-0.1-1-0.2c-0.7-0.1-0.6,0.2-0.2,0.6c0.4,0.4,0.9,0.8,1.3,1.3c0.4,0.5,0.4,1,0.5,1.6 c0.1,0.7,0.5,1.3,0.9,1.9c0.3,0.6,0.3,1.2,0.5,1.9c0.2,0.6,0.8,1.2,1.2,1.7c0.4,0.4,1.3,1.4,1.8,1.2c0.5-0.2,1.2,0.4,1.3,0.2 c0.2-0.2-0.5-1-0.2-1.2c0.3-0.3,1.5,0.1,1.7,0.9c0.3,0.9,0.2,1,0.2,1.6c0,0.4-0.2,0.8-0.5,1.1c-0.4,0.3-1.2,0.9-1,1.5 c0.7-0.4,1.6-0.4,2.4-0.4c0.8,0,1.4-0.3,1.9-0.9c0.2-0.3,0.9-1.1,1.3-0.6c0.2,0.2-0.5,1.2,0.3,1c0.5-0.1,1-0.5,1.4-0.8 c0.1-0.1,0.2-0.1,0.3-0.2c-0.6,2.5-1.7,4.8-3.2,6.9l0.6,0.5c2.7-3.4,4.3-7.7,4.3-12.4C40.6,9.1,31.5,0,20.3,0z M13.1,32.2 c0,0.2-0.3,2.1-0.7,4.1c-0.6-0.1-1.2-0.4-1.9-0.7c-0.7-0.4-1.2-0.7-1.6-1.2c1.6-1.4,3-2.6,3.1-2.7c0.4-0.4,0.6-0.4,0.8-0.3 C13.1,31.4,13.1,31.6,13.1,32.2z M14.2,29.2c0,0,0,0-0.1-0.1c-0.1,0-0.1,0-0.1-0.1c0,0,0,0,0,0c-1-0.5-1.9-0.5-3,0.3 c-1.5,1.1-8.7,7.1-8.7,7.1l2.1,1.8c0,0,1.2-1,2.6-2.2c0.7,0.6,1.5,1.2,2.4,1.7c0.9,0.5,1.8,0.8,2.6,1.1l-0.5,3.4L14,43 c0,0,1.4-9.3,1.5-11.1C15.6,30.5,15.1,29.7,14.2,29.2z M18.9,43.3h2.7V30.1h-2.7L18.9,43.3L18.9,43.3z M29.8,35.5 c-0.7,0.4-1.3,0.6-1.9,0.7c-0.3-2-0.6-3.9-0.7-4.1c-0.1-0.5,0-0.8,0.2-0.9c0.2-0.1,0.4,0,0.8,0.3c0.2,0.2,1.6,1.4,3.1,2.7 C31,34.8,30.5,35.2,29.8,35.5z M26.3,29.1c0,0,0,0-0.1,0.1c-0.1,0-0.1,0-0.1,0c-0.9,0.5-1.4,1.3-1.3,2.7 c0.1,1.8,1.5,11.1,1.5,11.1l2.6-0.8l-0.5-3.3c0.9-0.3,1.8-0.6,2.7-1.1c0.9-0.5,1.7-1,2.3-1.7c1.4,1.2,2.6,2.2,2.6,2.2l2.1-1.8 c0,0-7.2-6.1-8.7-7.2C28.2,28.6,27.3,28.6,26.3,29.1z M23.9,24.3c-0.2-0.2-0.7-0.6-1-1.4c-0.2-0.7-0.6-1.3-1.2-1.8 c-1.1-0.8-3.6-2.1-3.4-3.8c0.1-0.8,1-0.9,1.4-1.5c0.2-0.3,0.3-0.8,0.5-1.1c0.3-0.3-0.1-0.3-0.4-0.4c-0.6,0-1.1,0.7-1.6,1 c-0.9,0.5-1.7,1.1-2.6,1.3c-0.3,0.1-1.8,0.5-0.8,0.8c0.7,0.2,1.4,0.1,1.9,0.6c0.7,0.6,1.3,1.4,2,2c0.4,0.3,0.7,0.6,1,1 c0.3,0.4,0.3,0.9,0.5,1.4c0.2,0.4,0.7,0,1,0.3c1,0.8-0.4,1.2-0.7,1.5c-0.5,0.5-0.5,0.8-1.4,1.1c-0.4,0.1-2.7,0.4-3,0.6 c-0.3,0.2-0.1,0.3-0.1,0.4c0.1,0.1,0.5,0.2,0.7,0.2c1,0.1,4,0.7,4.7-0.1c0.4-0.5,1.1-0.6,1.8-0.4c0.5,0.1,1.5,0,2.3-0.3 c0.5-0.2,1.9-0.2,1.5-0.4C26.4,24.3,24.8,25,23.9,24.3L23.9,24.3z"/>
+          </svg>
+        </div>
+        <div class="brand-meta">
+          <div class="brand-name">AIA <span>DsScanner</span></div>
+          <div class="brand-sub">PDF Extraction Pipeline</div>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Dark/Light Mode" title="Toggle Theme">
+          <i data-lucide="moon" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ================= STAGE 1: INTAKE & SELECTION ================= -->
+      <section id="stage-intake" class="view-stage active">
+        <h1 class="heading-large">Embedded PDF<br>Extractor</h1>
+        <p class="sub-text">Automate document intake. Extract embedded PDFs from Word files quickly and seamlessly.</p>
+
+        <div class="intake-container">
+          <div class="drop-surface" id="dropzone">
+            <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+            <div class="drop-icon-container">
+              <i data-lucide="folder-search" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 style="font-weight: 700; font-size: 1.15rem; color: var(--text-main);">Select target ingestion directory</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem; margin-top: 6px;">Drop a directory or click to browse local files (e.g., UDS001.docx, UDS002.docx)</p>
+          </div>
+
+          <div class="queue-panel" id="queuePanel">
+            <div class="queue-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="file-check" style="color: var(--brand-primary); width: 20px;"></i>
+                <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Queue Verified</span>
+              </div>
+              <span class="badge-counter" id="queueCountBadge">0 Documents Detected</span>
+            </div>
+
+            <ul class="file-stream-list" id="fileListPreview"></ul>
+
+            <div class="queue-actions-footer">
+              <button class="btn btn-secondary" id="btnResetSelection">
+                <i data-lucide="x" style="width: 16px;"></i> Clear
+              </button>
+              <button class="btn btn-primary" id="btnStartPipeline">
+                <i data-lucide="play" style="width: 16px;"></i> Start Process
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= STAGE 2: PIPELINE DASHBOARD ================= -->
+      <section id="stage-processing" class="view-stage">
+        <div class="process-card">
+          <div class="progress-meta">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--brand-primary); margin-bottom: 4px;">
+                Pipeline Running
+              </div>
+              <div id="docCounterText" style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">
+                Processing Document 1 of 2
+              </div>
+            </div>
+            <div class="progress-percentage" id="progressPercentage">0%</div>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-bar-fill" id="progressBar"></div>
+          </div>
+
+          <div class="engine-terminal">
+            <div class="terminal-pulse">
+              <i data-lucide="terminal" style="width: 14px; height: 14px;"></i>
+              <span>Active Worker Node</span>
+            </div>
+            <div class="terminal-active-line">
+              <span class="accent">›</span>
+              <span id="terminalStatusMsg">Inspecting OLE compound structure...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= STAGE 3: RESULTS SUMMARY ================= -->
+      <section id="stage-results" class="view-stage">
+        <div class="success-badge">
+          <i data-lucide="check-circle-2" style="width: 18px; height: 18px;"></i>
+          <span>Pipeline Completed Successfully</span>
+        </div>
+        <h1 class="heading-large">PDFs Extracted &amp; Ready</h1>
+        <p class="sub-text">All embedded PDFs successfully extracted and sequential naming applied.</p>
+
+        <div class="stats-matrix">
+          <div class="stat-card">
+            <div class="label">Word Documents Processed</div>
+            <div class="value" id="statWordDocs">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">PDFs Generated</div>
+            <div class="value" id="statGeneratedPdfs" style="color: var(--brand-primary);">0</div>
+          </div>
+        </div>
+
+        <div class="results-cta-bar">
+          <button class="btn btn-primary" id="btnOpenFolder">
+            <i data-lucide="folder-open" style="width: 18px;"></i> Open Outputs Folder
+          </button>
+          <button class="btn btn-secondary" id="btnRunAnother">
+            <i data-lucide="rotate-ccw" style="width: 18px;"></i> Process Another Batch
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    /* ==========================================================
+       THEME CONTROLLER (LIGHT & DARK MODE - FIXED ICON UPDATE)
+       ========================================================== */
+    const themeToggle = document.getElementById('themeToggle');
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('aia_theme', theme); } catch(e) {}
+      
+      // Re-insert <i> tag so Lucide can process the icon replacement cleanly
+      const nextIcon = theme === 'dark' ? 'sun' : 'moon';
+      themeToggle.innerHTML = `<i data-lucide="${nextIcon}" style="width: 18px; height: 18px;"></i>`;
+      lucide.createIcons();
+    }
+
+    let savedTheme = 'light';
+    try {
+      savedTheme = localStorage.getItem('aia_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch(e) {
+      savedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    applyTheme(savedTheme);
+
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    /* ==========================================================
+       PART 1: INTRO ANIMATION & TIMING (ULTRA)
+       ========================================================== */
+
+  var stage      = document.getElementById('stage');
+  var canvas     = document.getElementById('particles');
+  var ctx        = canvas.getContext('2d', { alpha: true, desynchronized: true });
+  var logo       = document.getElementById('logo');
+  var flash      = document.querySelector('.flash');
+  var ring       = document.querySelector('.ring');
+  var wordmark   = document.querySelector('.wordmark');
+  var letters    = document.querySelectorAll('.wordmark span');
+  var tagline    = document.querySelector('.tagline');
+  var skipHint   = document.querySelector('.skip-hint');
+  var PATH_D     = document.querySelector('#logo path').getAttribute('d');
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var mainTl = null;
+  var particles = [];
+  var particlesActive = false;
+
+  // Pre-render a glowing dust mote for ultra-high performance + realistic bloom
+  var particleSprite = document.createElement('canvas');
+  particleSprite.width = 32;
+  particleSprite.height = 32;
+  var pCtx = particleSprite.getContext('2d', { alpha: true });
+  var pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  pGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  pGrad.addColorStop(0.15, 'rgba(255, 92, 124, 0.8)');
+  pGrad.addColorStop(0.4, 'rgba(211, 17, 69, 0.3)');
+  pGrad.addColorStop(1, 'rgba(211, 17, 69, 0)');
+  pCtx.fillStyle = pGrad;
+  pCtx.fillRect(0, 0, 32, 32);
+
+  function sizeCanvas(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    var scale = Math.min(1, 1024 / w, 768 / h);
+    
+    canvas.width  = Math.floor(w * scale * dpr);
+    canvas.height = Math.floor(h * scale * dpr);
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  }
+  sizeCanvas();
+  let resizeTicking = false;
+  window.addEventListener('resize', () => {
+    if (!resizeTicking) {
+      window.requestAnimationFrame(() => {
+        sizeCanvas();
+        resizeTicking = false;
+      });
+      resizeTicking = true;
+    }
+  });
+
+  function renderParticles(){
+    if(!particlesActive) return;
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    
+    // Additive blending for realistic optical light accumulation
+    ctx.globalCompositeOperation = 'screen';
+    
+    for(var i = 0; i < particles.length; i++){
+      var p = particles[i];
+      if(p.alpha <= 0.01 || p.size <= 0.05) continue;
+      
+      ctx.globalAlpha = p.alpha;
+      // Scale the sprite based on particle target size (gives a larger, softer glow)
+      var drawSize = p.size * 10;
+      ctx.drawImage(particleSprite, p.x - drawSize/2, p.y - drawSize/2, drawSize, drawSize);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over'; // Restore default
+  }
+
+  function sampleTargets(){
+    var rect = logo.getBoundingClientRect();
+    var w = Math.max(1, Math.round(rect.width));
+    var h = Math.max(1, Math.round(rect.height));
+    var off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    var octx = off.getContext('2d');
+    var scale = w / 40.6;
+    var path2d = new Path2D(PATH_D);
+    octx.save();
+    octx.scale(scale, scale);
+    octx.fillStyle = '#fff';
+    octx.fill(path2d, 'evenodd');
+    octx.restore();
+
+    var data = octx.getImageData(0, 0, w, h).data;
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var pts = [];
+    for(var y = 0; y < h; y++){
+      for(var x = 0; x < w; x++){
+        var idx = (y * w + x) * 4;
+        if(data[idx + 3] > 140){
+          pts.push({ x: cx + (x - w / 2), y: cy + (y - h / 2) });
+        }
+      }
+    }
+    return pts;
+  }
+
+  function createParticles(pts, count){
+    var scx = window.innerWidth / 2;
+    var scy = window.innerHeight / 2;
+    var spread = Math.min(window.innerWidth, window.innerHeight);
+    var list = [];
+    for(var i = 0; i < count; i++){
+      var target = pts.length ? pts[(Math.random() * pts.length) | 0] : { x: scx, y: scy };
+      var angle = Math.random() * Math.PI * 2;
+      var dist = spread * (0.32 + Math.random() * 0.5);
+      var warm = Math.random() < 0.6;
+      list.push({
+        x: scx + Math.cos(angle) * dist,
+        y: scy + Math.sin(angle) * dist,
+        tx: target.x,
+        ty: target.y,
+        alpha: 0,
+        size: 0,
+        targetSize: 1 + Math.random() * 2.1,
+        color: warm ? 'var(--red-bright)' : 'var(--red-deep)'
+      });
+    }
+    return list;
+  }
+
+  var COMPUTED = getComputedStyle(document.documentElement);
+  var COLOR_BRIGHT = COMPUTED.getPropertyValue('--red-bright').trim() || '#ff5c7c';
+  var COLOR_DEEP   = COMPUTED.getPropertyValue('--red-deep').trim()   || '#6e0d2c';
+
+  function finalizeColors(list){
+    for(var i = 0; i < list.length; i++){
+      list[i].color = list[i].color === 'var(--red-bright)' ? COLOR_BRIGHT : COLOR_DEEP;
+    }
+    return list;
+  }
+
+  function bindSkip(){
+    var done = false;
+    function skip(){
+      if(done) return;
+      done = true;
+      if(mainTl) mainTl.progress(1);
+    }
+    window.addEventListener('keydown', skip);
+    window.addEventListener('pointerdown', skip);
+    return skip;
+  }
+
+  function onIntroComplete(){
+    particlesActive = false;
+    if(window.gsap && gsap.ticker) gsap.ticker.remove(renderParticles);
+    stage.style.pointerEvents = 'none';
+    document.dispatchEvent(new CustomEvent('aia:intro-complete'));
+  }
+
+  function playFullIntro(){
+    var pts = sampleTargets();
+    // Cranked density by 3.5x for ultra-realism (now possible with sprite rendering)
+    particles = finalizeColors(createParticles(pts, 850));
+    particlesActive = true;
+    gsap.ticker.add(renderParticles);
+
+    gsap.set(logo, { opacity: 0, scale: 0.92 });
+    gsap.set(letters, { opacity: 0, y: 9 });
+    gsap.set(wordmark, { letterSpacing: '0.6em' });
+    gsap.set(tagline, { opacity: 0, y: 8, letterSpacing: '0.36em' });
+    gsap.set(ring, { opacity: 0, scale: 0.3 });
+    gsap.set(flash, { opacity: 0 });
+    gsap.set(skipHint, { opacity: 0 });
+
+    var tl = gsap.timeline({ onComplete: onIntroComplete });
+    mainTl = tl;
+
+    // 1 — Slow, smooth, floating dust gather
+    tl.to(particles, {
+      x: function(i, t){ return t.tx; },
+      y: function(i, t){ return t.ty; },
+      alpha: 1,
+      size: function(i, t){ return t.targetSize * 0.7; },
+      duration: function(){ return 2.2 + Math.random() * 1.5; }, // Much slower velocity
+      ease: 'power2.inOut', // Smooth acceleration and deceleration
+      stagger: { amount: 1.0, from: 'random' }
+    }, 0);
+
+    // 2 — Ignition: Snappy spark restored to original timing
+    tl.to(flash, { opacity: 0.85, duration: 0.1, ease: 'power1.in' }, '-=0.12')
+      .to(flash, { opacity: 0, duration: 0.55, ease: 'power2.out' })
+      .to(logo, { opacity: 1, scale: 1, duration: 0.75, ease: 'back.out(1.7)' }, '<')
+      .set(ring, { opacity: 0.9 }, '<')
+      .to(ring, { scale: 3.3, opacity: 0, duration: 0.9, ease: 'power2.out' }, '<')
+      .to(particles, {
+        alpha: 0, size: 0, duration: 0.5, ease: 'power1.out',
+        onComplete: function(){ particlesActive = false; gsap.ticker.remove(renderParticles); }
+      }, '<')
+
+      // 3 — Typography resolves (restored to original timings)
+      .to(letters, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', stagger: 0.09 }, '-=0.2')
+      .to(wordmark, { letterSpacing: '0.14em', duration: 0.65, ease: 'power2.out' }, '<')
+      .to(tagline, { opacity: 0.75, y: 0, letterSpacing: '0.22em', duration: 0.65, ease: 'power2.out' }, '-=0.35')
+      .to(skipHint, { opacity: 0.4, duration: 0.6 }, '-=0.1')
+
+      // 4 — One quiet breath while it holds
+      .to(logo, { scale: 1.02, duration: 0.9, ease: 'sine.inOut', yoyo: true, repeat: 1 }, '+=0.1')
+
+      // 5 — Hand off to the app
+      .to(skipHint, { opacity: 0, duration: 0.3 }, '+=0.15')
+      .to(stage, { opacity: 0, scale: 1.04, duration: 0.75, ease: 'power1.inOut' }, '-=0.1');
+  }
+
+  function playReducedIntro(){
+    gsap.set(logo, { opacity: 0, scale: 0.96 });
+    gsap.set(letters, { opacity: 0, y: 6 });
+    gsap.set(wordmark, { letterSpacing: '0.3em' });
+    gsap.set(tagline, { opacity: 0, y: 6, letterSpacing: '0.28em' });
+
+    var tl = gsap.timeline({ onComplete: onIntroComplete });
+    mainTl = tl;
+    tl.to(logo, { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' })
+      .to(letters, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', stagger: 0.06 }, '-=0.15')
+      .to(wordmark, { letterSpacing: '0.14em', duration: 0.5, ease: 'power2.out' }, '<')
+      .to(tagline, { opacity: 0.75, y: 0, letterSpacing: '0.22em', duration: 0.5, ease: 'power2.out' }, '-=0.2')
+      .to(stage, { opacity: 0, duration: 0.6, ease: 'power1.inOut' }, '+=0.9');
+  }
+
+  function playFallback(){
+    document.documentElement.classList.add('fallback');
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        document.documentElement.classList.add('reveal');
+        setTimeout(function(){
+          stage.style.transition = 'opacity 0.6s ease';
+          stage.style.opacity = '0';
+          setTimeout(onIntroComplete, 620);
+        }, 1400);
+      });
+    });
+  }
+
+  bindSkip();
+
+  
+
+  window.AIAIntro = {
+    skip: function(){ if(mainTl) mainTl.progress(1); },
+    replay: function(){ location.reload(); }
+  };
+
+  if(reduceMotion){
+    requestAnimationFrame(function(){ requestAnimationFrame(playReducedIntro); });
+  } else {
+    requestAnimationFrame(function(){ requestAnimationFrame(playFullIntro); });
+  }
+
+    
+    function transitionToApp() {
+      var appRoot = document.getElementById('app-root');
+      var mainHeader = document.getElementById('main-header');
+      var stageIntake = document.getElementById('stage-intake');
+      
+      appRoot.style.visibility = 'visible';
+      gsap.timeline()
+        .fromTo(appRoot, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power1.out' })
+        .fromTo(mainHeader, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out' }, '-=0.3')
+        .fromTo(stageIntake, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out' }, '-=0.3');
+    }
+    
+    document.addEventListener('aia:intro-complete', function() {
+        var stage = document.getElementById('stage');
+        var loadingScreen = document.getElementById('loading-screen');
+        
+        // Fade out stage
+        gsap.to(stage, { opacity: 0, duration: 0.3, onComplete: () => {
+            stage.style.display = 'none';
+            
+            // Show Loading Screen
+            loadingScreen.style.display = 'flex';
+            gsap.to(loadingScreen, { opacity: 1, duration: 0.3, onComplete: () => {
+                
+                // Maximize the window now that the heavy 850-particle animation is completely hidden/destroyed!
+                if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
+                    window.pywebview.api.maximize();
+                }
+
+                // Hold loading screen briefly to let Chromium GC run and window maximize finalize
+                setTimeout(() => {
+                    gsap.to(loadingScreen, { opacity: 0, duration: 0.3, onComplete: () => {
+                        loadingScreen.style.display = 'none';
+                        transitionToApp();
+                    }});
+                }, 1500);
+                
+            }});
+        }});
+    });
+
+    /* ==========================================================
+       PART 2: WORKSPACE ENGINE PIPELINE
+       ========================================================== */
+    const stageIntake = document.getElementById('stage-intake');
+    const stageProcessing = document.getElementById('stage-processing');
+    const stageResults = document.getElementById('stage-results');
+
+    const dropzone = document.getElementById('dropzone');
+    const folderInput = document.getElementById('folderInput');
+    const queuePanel = document.getElementById('queuePanel');
+    const queueCountBadge = document.getElementById('queueCountBadge');
+    const fileListPreview = document.getElementById('fileListPreview');
+    const btnStartPipeline = document.getElementById('btnStartPipeline');
+    const btnResetSelection = document.getElementById('btnResetSelection');
+
+    const progressBar = document.getElementById('progressBar');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const docCounterText = document.getElementById('docCounterText');
+    const terminalStatusMsg = document.getElementById('terminalStatusMsg');
+
+    const statWordDocs = document.getElementById('statWordDocs');
+    const statGeneratedPdfs = document.getElementById('statGeneratedPdfs');
+    const btnOpenFolder = document.getElementById('btnOpenFolder');
+    const btnRunAnother = document.getElementById('btnRunAnother');
+
+    let detectedFiles = [];
+    let currentSelectedFolder = null;
+    let lastOutputDir = null;
+
+    const DEFAULT_DEMO_BATCH = [
+      { name: "UDS001.docx", code: "UDS001", contents: ["2 embedded PDFs"] },
+      { name: "UDS002.docx", code: "UDS002", contents: ["1 embedded PDF"] }
+    ];
+
+    // Bridge for native Windows integration via pywebview
+    const backendBridge = {
+
+      minimize: () => { if (backendBridge.isNative()) window.pywebview.api.minimize(); },
+      maximize: () => { if (backendBridge.isNative()) window.pywebview.api.maximize(); },
+      close: () => { if (backendBridge.isNative()) window.pywebview.api.close(); },
+
+
+      isNative: () => typeof window.pywebview !== 'undefined' && window.pywebview.api,
+      
+      selectDirectory: async () => {
+        if (backendBridge.isNative()) {
+          try {
+            const res = await window.pywebview.api.select_directory();
+            if (res && res.success && res.files) {
+              currentSelectedFolder = res.folder_path;
+              handleSelection(res.files);
+            }
+          } catch (err) {
+            console.error("Folder selection failed:", err);
+          }
+        } else {
+          folderInput.click();
+        }
+      },
+
+      startPipeline: async () => {
+        if (backendBridge.isNative() && currentSelectedFolder) {
+          try {
+            const res = await window.pywebview.api.start_pipeline(currentSelectedFolder);
+            if (!res.success) {
+              terminalStatusMsg.innerHTML = `<span style="color: #F43F5E;">Error: ${res.error || "Failed to start"}</span>`;
+            }
+          } catch (err) {
+            console.error("Pipeline invocation error:", err);
+          }
+        } else {
+          executeMockPipeline();
+        }
+      },
+
+      openOutputDir: async () => {
+        if (backendBridge.isNative()) {
+          try {
+            await window.pywebview.api.open_output_dir(lastOutputDir);
+          } catch (err) {
+            console.error("Failed to open output directory:", err);
+          }
+        } else {
+          alert("Desktop App Mode: Windows Explorer will open the target outputs folder.");
+        }
+      }
+    };
+
+    // Global IPC Callbacks invoked by Python worker thread
+    window.onPipelineProgress = (data) => {
+      if (!data) return;
+      if (data.current_doc && data.total_docs) {
+        docCounterText.textContent = `Processing Document ${data.current_doc} of ${data.total_docs} (${data.doc_name || ''})`;
+      }
+      if (typeof data.percent === 'number') {
+        progressBar.style.width = `${data.percent}%`;
+        progressPercentage.textContent = `${data.percent}%`;
+      }
+      if (data.message) {
+        terminalStatusMsg.textContent = data.message;
+      }
+    };
+
+    window.onPipelineComplete = (data) => {
+      statWordDocs.textContent = data.total_docs || detectedFiles.length;
+      statGeneratedPdfs.textContent = data.total_extracted || "0";
+      lastOutputDir = data.output_dir;
+      progressBar.style.width = '100%';
+      progressPercentage.textContent = '100%';
+      setTimeout(() => {
+        switchStage(stageProcessing, stageResults);
+      }, 500);
+    };
+
+    window.onPipelineError = (data) => {
+      terminalStatusMsg.innerHTML = `<span style="color: #F43F5E;">Error: ${data.error || "Extraction failed"}</span>`;
+    };
+
+    function switchStage(current, next) {
+      gsap.to(current, {
+        opacity: 0,
+        y: -15,
+        duration: 0.3,
+        ease: "power2.inOut",
+        onComplete: () => {
+          current.classList.remove('active');
+          next.classList.add('active');
+          gsap.fromTo(next, 
+            { opacity: 0, y: 15 },
+            { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
+          );
+        }
+      });
+    }
+
+    dropzone.addEventListener('click', () => backendBridge.selectDirectory());
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      backendBridge.selectDirectory();
+    });
+
+    folderInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files).filter(f => f.name.endsWith('.docx'));
+      if (files.length > 0) {
+        const payload = files.map(f => ({
+          name: f.name,
+          code: f.name.replace(/\.[^/.]+$/, ""),
+          contents: ["Scanned Document Structure"]
+        }));
+        handleSelection(payload);
+      } else {
+        handleSelection(DEFAULT_DEMO_BATCH);
+      }
+    });
+
+    function handleSelection(files) {
+      detectedFiles = files;
+      fileListPreview.innerHTML = '';
+      
+      files.forEach((file) => {
+        const li = document.createElement('li');
+        li.className = 'file-stream-item';
+        li.innerHTML = `
+          <div class="file-name-meta">
+            <i data-lucide="file-text" style="color: var(--brand-primary); width: 18px;"></i>
+            <span>${file.name}</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">${(file.contents || ["Word Document"]).join(', ')}</span>
+        `;
+        fileListPreview.appendChild(li);
+      });
+
+      queueCountBadge.textContent = `${files.length} Document${files.length > 1 ? 's' : ''} Detected`;
+      lucide.createIcons();
+
+      gsap.killTweensOf([dropzone, queuePanel]);
+      gsap.to(dropzone, {
+        opacity: 0,
+        y: -16,
+        scale: 0.98,
+        duration: 0.28,
+        ease: "power2.inOut",
+        onComplete: () => {
+          dropzone.style.display = 'none';
+          queuePanel.style.display = 'block';
+          gsap.fromTo(queuePanel, 
+            { opacity: 0, y: 16, scale: 0.98 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "power2.out" }
+          );
+        }
+      });
+    }
+
+    btnResetSelection.addEventListener('click', () => {
+      detectedFiles = [];
+      currentSelectedFolder = null;
+      folderInput.value = '';
+
+      gsap.killTweensOf([dropzone, queuePanel]);
+      gsap.to(queuePanel, {
+        opacity: 0,
+        y: -16,
+        scale: 0.98,
+        duration: 0.25,
+        ease: "power2.inOut",
+        onComplete: () => {
+          queuePanel.style.display = 'none';
+          dropzone.style.display = 'block';
+          gsap.fromTo(dropzone, 
+            { opacity: 0, y: 16, scale: 0.98 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "power2.out" }
+          );
+        }
+      });
+    });
+
+    btnStartPipeline.addEventListener('click', () => {
+      switchStage(stageIntake, stageProcessing);
+      progressBar.style.width = '0%';
+      progressPercentage.textContent = '0%';
+      terminalStatusMsg.textContent = 'Starting processing engine...';
+      backendBridge.startPipeline();
+    });
+
+    function executeMockPipeline() {
+      const steps = [
+        { progress: 20, doc: 1, msg: "Inspecting embedded OLE package in UDS001.docx..." },
+        { progress: 45, doc: 1, msg: "Extracting embedded PDFs from UDS001.docx..." },
+        { progress: 75, doc: 2, msg: "Extracting embedded PDF from UDS002.docx..." },
+        { progress: 100, doc: 2, msg: "Applying naming convention and saving outputs..." }
+      ];
+
+      let currentStep = 0;
+
+      const interval = setInterval(() => {
+        const item = steps[currentStep];
+        
+        progressBar.style.width = `${item.progress}%`;
+        progressPercentage.textContent = `${item.progress}%`;
+        docCounterText.textContent = `Processing Document ${item.doc} of ${detectedFiles.length}`;
+        terminalStatusMsg.textContent = item.msg;
+
+        currentStep++;
+
+        if (currentStep >= steps.length) {
+          clearInterval(interval);
+          setTimeout(showFinalResults, 500);
+        }
+      }, 700);
+    }
+
+    function showFinalResults() {
+      statWordDocs.textContent = detectedFiles.length;
+      statGeneratedPdfs.textContent = "3";
+      switchStage(stageProcessing, stageResults);
+    }
+
+    btnOpenFolder.addEventListener('click', () => backendBridge.openOutputDir());
+
+    btnRunAnother.addEventListener('click', () => {
+      detectedFiles = [];
+      currentSelectedFolder = null;
+      folderInput.value = '';
+      progressBar.style.width = '0%';
+      progressPercentage.textContent = '0%';
+
+      queuePanel.style.display = 'none';
+      dropzone.style.display = 'block';
+      gsap.set(dropzone, { opacity: 1, y: 0, scale: 1 });
+      gsap.set(queuePanel, { opacity: 0, y: 0, scale: 1 });
+
+      switchStage(stageResults, stageIntake);
+    });
+  </script>
+</body>
+</html>
