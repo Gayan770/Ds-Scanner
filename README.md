@@ -52,4 +52,4 @@ The resulting executable will be placed at `dist/AIA_PDF_Extractor.exe`.
 - **Parallel Threading**: The backend extraction logic is offloaded onto an asynchronous background thread. This keeps the PyWebView main UI event loop unlocked and buttery-smooth.
 - **Direct IPC Bridge**: Eliminates the need for local Flask/FastAPI servers or web sockets, heavily reducing latency and memory footprint.
 
-![demo](demo/demo.mp4)
+<video src="demo/demo.mp4" controls width="100%"></video>
