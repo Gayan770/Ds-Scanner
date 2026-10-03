@@ -51,3 +51,5 @@ The resulting executable will be placed at `dist/AIA_PDF_Extractor.exe`.
 - **Lazy Loading Strategy**: Heavy imports (`olefile`, `zipfile`, `io`, etc.) are deferred and only loaded lazily during active processing, bypassing startup bottlenecks.
 - **Parallel Threading**: The backend extraction logic is offloaded onto an asynchronous background thread. This keeps the PyWebView main UI event loop unlocked and buttery-smooth.
 - **Direct IPC Bridge**: Eliminates the need for local Flask/FastAPI servers or web sockets, heavily reducing latency and memory footprint.
+
+![demo](demo/demo.mp4)
