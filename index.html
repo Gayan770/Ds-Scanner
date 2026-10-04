@@ -980,8 +980,7 @@ var stage      = document.getElementById('stage');
   if(typeof gsap === 'undefined'){
     playFallback();
     window.AIAIntro = { skip: onIntroComplete, replay: function(){ location.reload(); } };
-    return;
-  }
+  } else {
 
   window.AIAIntro = {
     skip: function(){ if(mainTl) mainTl.progress(1); },
@@ -992,6 +991,7 @@ var stage      = document.getElementById('stage');
     requestAnimationFrame(function(){ requestAnimationFrame(playReducedIntro); });
   } else {
     requestAnimationFrame(function(){ requestAnimationFrame(playFullIntro); });
+  }
   }
 
 
