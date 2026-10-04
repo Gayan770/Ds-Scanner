@@ -188,7 +188,16 @@ def main():
     )
     api.set_window(window)
     
-    # Removed problematic on_shown maximize handler that caused freezing on startup
+    def on_shown():
+        # Force the window to start in default size (1024x768) 
+        # just in case Windows cached a previous maximized state.
+        try:
+            window.restore()
+            window.resize(1024, 768)
+        except:
+            pass
+
+    window.events.shown += on_shown
     
     webview.start(gui='edgechromium', debug=False)
 
