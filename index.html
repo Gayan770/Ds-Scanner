@@ -1167,10 +1167,7 @@
             loadingScreen.style.display = 'flex';
             gsap.to(loadingScreen, { opacity: 1, duration: 0.3, onComplete: () => {
                 
-                // Maximize the window now that the heavy 850-particle animation is completely hidden/destroyed!
-                if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
-                    window.pywebview.api.maximize();
-                }
+
 
                 // Hold loading screen briefly to let Chromium GC run and window maximize finalize
                 setTimeout(() => {
