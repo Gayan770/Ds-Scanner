@@ -699,7 +699,6 @@
 
   <!-- ================= ANIMATED INTRO SCREEN ================= -->
   <div id="stage">
-  <canvas id="particles" aria-hidden="true"></canvas>
   <div class="flash" aria-hidden="true"></div>
   <div class="ring" aria-hidden="true"></div>
 
@@ -883,12 +882,9 @@
     });
 
     /* ==========================================================
-       PART 1: INTRO ANIMATION & TIMING (ULTRA)
-       ========================================================== */
-
-  var stage      = document.getElementById('stage');
-  var canvas     = document.getElementById('particles');
-  var ctx        = canvas.getContext('2d', { alpha: true, desynchronized: true });
+   PART 1: INTRO ANIMATION (MINIMAL)
+   ========================================================== */
+var stage      = document.getElementById('stage');
   var logo       = document.getElementById('logo');
   var flash      = document.querySelector('.flash');
   var ring       = document.querySelector('.ring');
@@ -896,134 +892,9 @@
   var letters    = document.querySelectorAll('.wordmark span');
   var tagline    = document.querySelector('.tagline');
   var skipHint   = document.querySelector('.skip-hint');
-  var PATH_D     = document.querySelector('#logo path').getAttribute('d');
 
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var mainTl = null;
-  var particles = [];
-  var particlesActive = false;
-
-  // Pre-render a glowing dust mote for ultra-high performance + realistic bloom
-  var particleSprite = document.createElement('canvas');
-  particleSprite.width = 32;
-  particleSprite.height = 32;
-  var pCtx = particleSprite.getContext('2d', { alpha: true });
-  var pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-  pGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-  pGrad.addColorStop(0.15, 'rgba(255, 92, 124, 0.8)');
-  pGrad.addColorStop(0.4, 'rgba(211, 17, 69, 0.3)');
-  pGrad.addColorStop(1, 'rgba(211, 17, 69, 0)');
-  pCtx.fillStyle = pGrad;
-  pCtx.fillRect(0, 0, 32, 32);
-
-  function sizeCanvas(){
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var w = window.innerWidth;
-    var h = window.innerHeight;
-    var scale = Math.min(1, 1024 / w, 768 / h);
-    
-    canvas.width  = Math.floor(w * scale * dpr);
-    canvas.height = Math.floor(h * scale * dpr);
-    canvas.style.width  = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-  }
-  sizeCanvas();
-  let resizeTicking = false;
-  window.addEventListener('resize', () => {
-    if (!resizeTicking) {
-      window.requestAnimationFrame(() => {
-        sizeCanvas();
-        resizeTicking = false;
-      });
-      resizeTicking = true;
-    }
-  });
-
-  function renderParticles(){
-    if(!particlesActive) return;
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    
-    // Additive blending for realistic optical light accumulation
-    ctx.globalCompositeOperation = 'screen';
-    
-    for(var i = 0; i < particles.length; i++){
-      var p = particles[i];
-      if(p.alpha <= 0.01 || p.size <= 0.05) continue;
-      
-      ctx.globalAlpha = p.alpha;
-      // Scale the sprite based on particle target size (gives a larger, softer glow)
-      var drawSize = p.size * 10;
-      ctx.drawImage(particleSprite, p.x - drawSize/2, p.y - drawSize/2, drawSize, drawSize);
-    }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over'; // Restore default
-  }
-
-  function sampleTargets(){
-    var rect = logo.getBoundingClientRect();
-    var w = Math.max(1, Math.round(rect.width));
-    var h = Math.max(1, Math.round(rect.height));
-    var off = document.createElement('canvas');
-    off.width = w; off.height = h;
-    var octx = off.getContext('2d');
-    var scale = w / 40.6;
-    var path2d = new Path2D(PATH_D);
-    octx.save();
-    octx.scale(scale, scale);
-    octx.fillStyle = '#fff';
-    octx.fill(path2d, 'evenodd');
-    octx.restore();
-
-    var data = octx.getImageData(0, 0, w, h).data;
-    var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
-    var pts = [];
-    for(var y = 0; y < h; y++){
-      for(var x = 0; x < w; x++){
-        var idx = (y * w + x) * 4;
-        if(data[idx + 3] > 140){
-          pts.push({ x: cx + (x - w / 2), y: cy + (y - h / 2) });
-        }
-      }
-    }
-    return pts;
-  }
-
-  function createParticles(pts, count){
-    var scx = window.innerWidth / 2;
-    var scy = window.innerHeight / 2;
-    var spread = Math.min(window.innerWidth, window.innerHeight);
-    var list = [];
-    for(var i = 0; i < count; i++){
-      var target = pts.length ? pts[(Math.random() * pts.length) | 0] : { x: scx, y: scy };
-      var angle = Math.random() * Math.PI * 2;
-      var dist = spread * (0.32 + Math.random() * 0.5);
-      var warm = Math.random() < 0.6;
-      list.push({
-        x: scx + Math.cos(angle) * dist,
-        y: scy + Math.sin(angle) * dist,
-        tx: target.x,
-        ty: target.y,
-        alpha: 0,
-        size: 0,
-        targetSize: 1 + Math.random() * 2.1,
-        color: warm ? 'var(--red-bright)' : 'var(--red-deep)'
-      });
-    }
-    return list;
-  }
-
-  var COMPUTED = getComputedStyle(document.documentElement);
-  var COLOR_BRIGHT = COMPUTED.getPropertyValue('--red-bright').trim() || '#ff5c7c';
-  var COLOR_DEEP   = COMPUTED.getPropertyValue('--red-deep').trim()   || '#6e0d2c';
-
-  function finalizeColors(list){
-    for(var i = 0; i < list.length; i++){
-      list[i].color = list[i].color === 'var(--red-bright)' ? COLOR_BRIGHT : COLOR_DEEP;
-    }
-    return list;
-  }
 
   function bindSkip(){
     var done = false;
@@ -1038,62 +909,39 @@
   }
 
   function onIntroComplete(){
-    particlesActive = false;
-    if(window.gsap && gsap.ticker) gsap.ticker.remove(renderParticles);
     stage.style.pointerEvents = 'none';
     document.dispatchEvent(new CustomEvent('aia:intro-complete'));
   }
 
   function playFullIntro(){
-    var pts = sampleTargets();
-    // Cranked density by 3.5x for ultra-realism (now possible with sprite rendering)
-    particles = finalizeColors(createParticles(pts, 850));
-    particlesActive = true;
-    gsap.ticker.add(renderParticles);
-
     gsap.set(logo, { opacity: 0, scale: 0.92 });
     gsap.set(letters, { opacity: 0, y: 9 });
     gsap.set(wordmark, { letterSpacing: '0.6em' });
     gsap.set(tagline, { opacity: 0, y: 8, letterSpacing: '0.36em' });
-    gsap.set(ring, { opacity: 0, scale: 0.3 });
+    gsap.set(ring, { opacity: 0, scale: 0.1 });
     gsap.set(flash, { opacity: 0 });
     gsap.set(skipHint, { opacity: 0 });
 
     var tl = gsap.timeline({ onComplete: onIntroComplete });
     mainTl = tl;
 
-    // 1 — Slow, smooth, floating dust gather
-    tl.to(particles, {
-      x: function(i, t){ return t.tx; },
-      y: function(i, t){ return t.ty; },
-      alpha: 1,
-      size: function(i, t){ return t.targetSize * 0.7; },
-      duration: function(){ return 2.2 + Math.random() * 1.5; }, // Much slower velocity
-      ease: 'power2.inOut', // Smooth acceleration and deceleration
-      stagger: { amount: 1.0, from: 'random' }
-    }, 0);
+    // 1 — Ignition: A highly realistic, natural flash and logo reveal
+    tl.to(flash, { opacity: 1, duration: 0.15, ease: 'sine.inOut' }, 0.2) // Short delay before striking
+      .to(flash, { opacity: 0, duration: 1.2, ease: 'power3.out' })
+      .to(logo, { opacity: 1, scale: 1, duration: 1.0, ease: 'back.out(1.4)' }, '<') 
+      .set(ring, { opacity: 0.8 }, '<')
+      .to(ring, { scale: 3.8, opacity: 0, duration: 1.4, ease: 'expo.out' }, '<') 
 
-    // 2 — Ignition: Snappy spark restored to original timing
-    tl.to(flash, { opacity: 0.85, duration: 0.1, ease: 'power1.in' }, '-=0.12')
-      .to(flash, { opacity: 0, duration: 0.55, ease: 'power2.out' })
-      .to(logo, { opacity: 1, scale: 1, duration: 0.75, ease: 'back.out(1.7)' }, '<')
-      .set(ring, { opacity: 0.9 }, '<')
-      .to(ring, { scale: 3.3, opacity: 0, duration: 0.9, ease: 'power2.out' }, '<')
-      .to(particles, {
-        alpha: 0, size: 0, duration: 0.5, ease: 'power1.out',
-        onComplete: function(){ particlesActive = false; gsap.ticker.remove(renderParticles); }
-      }, '<')
-
-      // 3 — Typography resolves (restored to original timings)
-      .to(letters, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', stagger: 0.09 }, '-=0.2')
+      // 2 — The wordmark smoothly resolves
+      .to(letters, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', stagger: 0.09 }, '-=0.9')
       .to(wordmark, { letterSpacing: '0.14em', duration: 0.65, ease: 'power2.out' }, '<')
       .to(tagline, { opacity: 0.75, y: 0, letterSpacing: '0.22em', duration: 0.65, ease: 'power2.out' }, '-=0.35')
       .to(skipHint, { opacity: 0.4, duration: 0.6 }, '-=0.1')
 
-      // 4 — One quiet breath while it holds
+      // 3 — One quiet breath while it holds (bounces front and back)
       .to(logo, { scale: 1.02, duration: 0.9, ease: 'sine.inOut', yoyo: true, repeat: 1 }, '+=0.1')
 
-      // 5 — Hand off to the app
+      // 4 — Hand off to the app
       .to(skipHint, { opacity: 0, duration: 0.3 }, '+=0.15')
       .to(stage, { opacity: 0, scale: 1.04, duration: 0.75, ease: 'power1.inOut' }, '-=0.1');
   }
@@ -1129,7 +977,11 @@
 
   bindSkip();
 
-  
+  if(typeof gsap === 'undefined'){
+    playFallback();
+    window.AIAIntro = { skip: onIntroComplete, replay: function(){ location.reload(); } };
+    return;
+  }
 
   window.AIAIntro = {
     skip: function(){ if(mainTl) mainTl.progress(1); },
@@ -1141,6 +993,8 @@
   } else {
     requestAnimationFrame(function(){ requestAnimationFrame(playFullIntro); });
   }
+
+
 
     
     function transitionToApp() {
