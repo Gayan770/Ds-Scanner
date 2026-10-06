@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Executive Deck | Decision Sheet Automation Initiative</title>
+  
+  <!-- Typography: Inter for clean corporate UI + JetBrains Mono for technical callouts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0b0f17;
+      --bg-surface: #121824;
+      --bg-elevated: #1b2234;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #38bdf8;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 45%);
+    }
+
+    /* 16:9 Presentation Stage Wrapper */
+    .deck-viewport {
+      position: relative;
+      width: 94vw;
+      height: 52.875vw; /* 16:9 ratio */
+      max-width: 1440px;
+      max-height: 810px;
+      background-color: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 1px rgba(255,255,255,0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Presentation Header */
+    .deck-header {
+      height: 54px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .badge-pill {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      letter-spacing: 0;
+    }
+
+    /* Presentation Workspace / Slide Canvas */
+    .slides-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: calc(100% - 54px - 44px);
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 48px 56px;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px) scale(0.99);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Typographic Hierarchy */
+    .category-tag {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .slide-title {
+      font-size: 2.15rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .slide-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 820px;
+      margin-bottom: 32px;
+      font-weight: 400;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .card.highlighted {
+      border-color: var(--border-focus);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.04) 0%, var(--bg-elevated) 100%);
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    .metric-hero {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: var(--accent-blue);
+      line-height: 1;
+      margin-bottom: 8px;
+      font-feature-settings: "tnum" 1;
+    }
+
+    .metric-subtext {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    /* Workflow Pipeline Steps */
+    .pipeline {
+      display: flex;
+      gap: 16px;
+      align-items: stretch;
+      margin-top: auto;
+      margin-bottom: auto;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      position: relative;
+    }
+
+    .pipeline-step::after {
+      content: '→';
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      z-index: 10;
+    }
+
+    .pipeline-step:last-child::after {
+      display: none;
+    }
+
+    /* Comparison Table / Strategy Matrix */
+    .strategy-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .strategy-table th, .strategy-table td {
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .strategy-table th {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Footer / Progress Bar */
+    .deck-footer {
+      height: 44px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(11, 15, 23, 0.4);
+    }
+
+    .progress-track {
+      width: 180px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-blue);
+      width: 16.66%;
+      transition: width 0.3s ease;
+    }
+
+    .nav-hints {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .nav-hints kbd {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-muted);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+  </style>
+</head>
+<body>
+
+  <main class="deck-viewport">
+    <!-- Header Context -->
+    <header class="deck-header">
+      <span>Operations Engineering & Automation</span>
+      <span class="badge-pill">Confidential Internal Proposal</span>
+      <span id="slide-counter">01 / 06</span>
+    </header>
+
+    <!-- Slide Deck Workspace -->
+    <div class="slides-container">
+
+      <!-- SLIDE 1: Cover & Mission -->
+      <section class="slide active" data-index="1">
+        <span class="category-tag">Internal Innovation Initiative</span>
+        <h1 class="slide-title" style="font-size: 3rem; margin-top: 24px; max-width: 900px;">
+          Scaling Operational Velocity: <br/>
+          <span style="color: var(--accent-blue);">Decision Sheet DMS Automation</span>
+        </h1>
+        <p class="slide-subtitle" style="font-size: 1.25rem; margin-top: 16px;">
+          Transitioning from repetitive, friction-heavy manual document ingestion to an enterprise-grade automated pipeline.
+        </p>
+
+        <div class="grid-3" style="margin-top: auto; max-height: 150px;">
+          <div class="card">
+            <span class="card-label">The Core Objective</span>
+            <strong style="color: #fff; font-size: 1.1rem;">Eliminate 90% Manual Interventions</strong>
+            <p class="metric-subtext" style="margin-top: 6px;">Zero manual extraction of Word embeddings.</p>
+          </div>
+          <div class="card">
+            <span class="card-label">Operational ROI</span>
+            <strong style="color: #fff; font-size: 1.1rem;">Instant SLA Turnaround</strong>
+            <p class="metric-subtext" style="margin-top: 6px;">Same-day DMS ingestion without backlog accumulation.</p>
+          </div>
+          <div class="card highlighted">
+            <span class="card-label">Team Stance</span>
+            <strong style="color: var(--accent-blue); font-size: 1.1rem;">Proactive Engineering</strong>
+            <p class="metric-subtext" style="margin-top: 6px;">Bringing production-ready solutions, not bottlenecks.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: Problem Statement & Evolution -->
+      <section class="slide" data-index="2">
+        <span class="category-tag">Operational Context</span>
+        <h2 class="slide-title">The Evolution of Our Ingestion Pipeline</h2>
+        <p class="slide-subtitle">How we tackled Phase 1, and the technical barrier that remains for 100% throughput.</p>
+
+        <div class="grid-2">
+          <div class="card" style="border-left: 3px solid var(--accent-amber);">
+            <span class="card-label">Phase 01: Bulk PDF Engine (Deployed)</span>
+            <h3 style="font-size: 1.2rem; margin-bottom: 12px; color: #fff;">1-Click Word to PDF Conversion</h3>
+            <p class="metric-subtext" style="margin-bottom: 16px;">
+              Successfully deployed a zero-friction bulk converter to relieve baseline workload stress. It eliminated standard conversion time across documents.
+            </p>
+            <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--accent-amber);">
+              ✓ Solved basic document bulk conversion.<br/>
+              ✗ Failed to capture deep nested files inside documents.
+            </div>
+          </div>
+
+          <div class="card highlighted" style="border-left: 3px solid var(--accent-blue);">
+            <span class="card-label">Phase 02: Deep Ingestion (Current Bottleneck)</span>
+            <h3 style="font-size: 1.2rem; margin-bottom: 12px; color: #fff;">The Embedded Object Challenge</h3>
+            <p class="metric-subtext" style="margin-bottom: 16px;">
+              Every Decision Sheet contains multiple embedded attachments. Team members still manually open each document, locate embeddings, convert them individually, and pair them before DMS upload.
+            </p>
+            <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--accent-blue);">
+              ⚠ 70% of total processing time is wasted on embedding extraction.<br/>
+              ⚠ Risk of missed attachments or mismatched audit trails.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: Technical Architecture -->
+      <section class="slide" data-index="3">
+        <span class="category-tag">Engine Design</span>
+        <h2 class="slide-title">Automated Embedding Extractor</h2>
+        <p class="slide-subtitle">A high-performance Python engine designed to parse document structure and automate output.</p>
+
+        <div class="pipeline">
+          <div class="pipeline-step">
+            <span class="card-label">Step 01</span>
+            <h4 style="font-size: 1.05rem; margin-bottom: 6px;">Batch Ingestion</h4>
+            <p class="metric-subtext">Monitors input folders and ingests raw Word Decision Sheets asynchronously.</p>
+          </div>
+          <div class="pipeline-step" style="border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.05);">
+            <span class="card-label" style="color: var(--accent-blue);">Step 02 (Core Engine)</span>
+            <h4 style="font-size: 1.05rem; margin-bottom: 6px; color: var(--accent-blue);">Python Deconstruction</h4>
+            <p class="metric-subtext">Directly parses binary DOCX/OLE package trees to isolate every embedded artifact safely.</p>
+          </div>
+          <div class="pipeline-step">
+            <span class="card-label">Step 03</span>
+            <h4 style="font-size: 1.05rem; margin-bottom: 6px;">Auto-Normalization</h4>
+            <p class="metric-subtext">Converts extracted artifacts into compliant standardized PDFs with original naming integrity.</p>
+          </div>
+          <div class="pipeline-step">
+            <span class="card-label">Step 04</span>
+            <h4 style="font-size: 1.05rem; margin-bottom: 6px;">DMS Hand-off</h4>
+            <p class="metric-subtext">Pre-bundles parent and child assets for instant, single-action DMS ingestion.</p>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 24px; max-height: 110px;">
+          <div class="card" style="padding: 16px 20px;">
+            <span class="card-label">Performance Metric</span>
+            <p style="font-size: 0.95rem;"><strong style="color: var(--accent-emerald);">Sub-second parsing</strong> per standard decision sheet.</p>
+          </div>
+          <div class="card" style="padding: 16px 20px;">
+            <span class="card-label">Data Security Integrity</span>
+            <p style="font-size: 0.95rem;"><strong style="color: var(--accent-blue);">100% on-premises execution</strong> with zero third-party cloud leaks.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: Operational Impact & Key Metrics -->
+      <section class="slide" data-index="4">
+        <span class="category-tag">Business Case</span>
+        <h2 class="slide-title">Quantified Productivity Transformation</h2>
+        <p class="slide-subtitle">Eliminating repetitive labor to protect operational headcount and stabilize team bandwidth.</p>
+
+        <div class="grid-3">
+          <div class="card highlighted">
+            <span class="card-label">Human Interventions</span>
+            <div class="metric-hero" style="color: var(--accent-emerald);">-90%</div>
+            <p class="metric-subtext">Manual file manipulation cut from hours to a supervisory single-click confirmation.</p>
+          </div>
+
+          <div class="card highlighted">
+            <span class="card-label">Throughput Multiplier</span>
+            <div class="metric-hero">4.5×</div>
+            <p class="metric-subtext">Overall speed increase for end-to-end Decision Sheet processing into the DMS repository.</p>
+          </div>
+
+          <div class="card highlighted">
+            <span class="card-label">Audit Accuracy</span>
+            <div class="metric-hero" style="color: var(--accent-cyan);">100%</div>
+            <p class="metric-subtext">Eliminates accidental omission of embedded sub-clauses, tables, and annexures.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Strategic Challenges & Management Alignment -->
+      <section class="slide" data-index="5">
+        <span class="category-tag">Risk & Governance</span>
+        <h2 class="slide-title">Governance, Permissions & Resource Roadmap</h2>
+        <p class="slide-subtitle">Addressing enterprise requirements transparently to ensure secure IT integration.</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <span class="card-label">Challenge 01: IT & Management Authorization</span>
+            <h4 style="font-size: 1.1rem; margin-bottom: 8px;">Formal Approvals vs. Ad-Hoc Scripts</h4>
+            <p class="metric-subtext" style="margin-bottom: 14px;">
+              Unlike our Phase 1 script which ran client-side without elevated privilege, this production-grade tool will hook cleanly into staging directories.
+            </p>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: var(--radius-sm); font-size: 0.85rem; border-left: 2px solid var(--accent-blue);">
+              <strong>Mitigation:</strong> Complete code audit ready, sanitized runtime profile, zero outbound socket connections, compliant with internal IT security guidelines.
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-label">Challenge 02: Environment Consistency</span>
+            <h4 style="font-size: 1.1rem; margin-bottom: 8px;">Resource & Runtime Stabilization</h4>
+            <p class="metric-subtext" style="margin-bottom: 14px;">
+              Executing scripts across disparate local environments creates compatibility variance.
+            </p>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: var(--radius-sm); font-size: 0.85rem; border-left: 2px solid var(--accent-emerald);">
+              <strong>Mitigation:</strong> Packaged standalone environment with sandboxed libraries, scheduled for definitive production testing upon approval.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Executive Pitch & Win-Win Decision Matrix -->
+      <section class="slide" data-index="6">
+        <span class="category-tag">Executive Summary</span>
+        <h2 class="slide-title">The Pitch: A Structured Win-Win Narrative</h2>
+        <p class="slide-subtitle">Demonstrating operational ownership while resolving team capacity constraints.</p>
+
+        <table class="strategy-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">Executive Decision</th>
+              <th style="width: 38%;">Operational Outcome</th>
+              <th style="width: 37%;">Strategic Department Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); font-weight: 700; font-size: 0.8rem;">
+                  SCENARIO A: APPROVED
+                </span>
+              </td>
+              <td>Software goes live with full IT compliance and automated processing.</td>
+              <td>
+                <strong style="color: #fff;">Capacity Unlocked:</strong> Workload drops 90%, eliminating backlogs without requiring new headcount during tight hiring markets.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); font-weight: 700; font-size: 0.8rem;">
+                  SCENARIO B: DEFERRED
+                </span>
+              </td>
+              <td>The bottleneck is clearly quantified and logged with empirical data.</td>
+              <td>
+                <strong style="color: #fff;">Justified Headcount:</strong> Provides clear mathematical justification for resource allocation or additional hiring.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="card highlighted" style="margin-top: 24px; padding: 18px 24px; flex-direction: row; align-items: center; justify-content: space-between;">
+          <div>
+            <h4 style="font-size: 1rem; color: #fff;">Our Team Commitment</h4>
+            <p class="metric-subtext" style="font-size: 0.85rem; margin-top: 2px;">
+              "We arrive with working solutions rather than complaints. We are ready to initiate staging sandbox tests immediately."
+            </p>
+          </div>
+          <button style="background: var(--accent-blue); color: #0b0f17; border: none; padding: 10px 20px; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-sans);">
+            Request Authorization
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Presentation Footer Controls -->
+    <footer class="deck-footer">
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-bar"></div>
+      </div>
+      <div class="nav-hints">
+        Navigate with <kbd>→</kbd> <kbd>←</kbd> or <kbd>Space</kbd> • Fullscreen <kbd>F</kbd>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Executive Presentation State Engine
+    (function () {
+      const slides = document.querySelectorAll('.slide');
+      const counter = document.getElementById('slide-counter');
+      const progressBar = document.getElementById('progress-bar');
+      const totalSlides = slides.length;
+      let currentIndex = 0;
+
+      function updateSlide(index) {
+        slides.forEach((slide, i) => {
+          slide.classList.toggle('active', i === index);
+        });
+
+        // Update progress metadata
+        const currentNumber = String(index + 1).padStart(2, '0');
+        const totalNumber = String(totalSlides).padStart(2, '0');
+        counter.textContent = `${currentNumber} / ${totalNumber}`;
+        
+        const progressPercent = ((index + 1) / totalSlides) * 100;
+        progressBar.style.width = `${progressPercent}%`;
+      }
+
+      function nextSlide() {
+        if (currentIndex < totalSlides - 1) {
+          currentIndex++;
+          updateSlide(currentIndex);
+        }
+      }
+
+      function prevSlide() {
+        if (currentIndex > 0) {
+          currentIndex--;
+          updateSlide(currentIndex);
+        }
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+        }
+      }
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        switch (e.key) {
+          case 'ArrowRight':
+          case ' ':
+          case 'PageDown':
+            e.preventDefault();
+            nextSlide();
+            break;
+          case 'ArrowLeft':
+          case 'PageUp':
+            e.preventDefault();
+            prevSlide();
+            break;
+          case 'f':
+          case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+          case 'Home':
+            e.preventDefault();
+            currentIndex = 0;
+            updateSlide(currentIndex);
+            break;
+          case 'End':
+            e.preventDefault();
+            currentIndex = totalSlides - 1;
+            updateSlide(currentIndex);
+            break;
+        }
+      });
+
+      // Click to advance
+      document.querySelector('.deck-viewport').addEventListener('click', (e) => {
+        // Prevent next slide trigger if interactive button is clicked
+        if (e.target.tagName.toLowerCase() === 'button') return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        if (clickX > rect.width / 2) {
+          nextSlide();
+        } else {
+          prevSlide();
+        }
+      });
+
+      // Initialize
+      updateSlide(currentIndex);
+    })();
+  </script>
+</body>
+</html>
