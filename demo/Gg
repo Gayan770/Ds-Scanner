@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Organizer</title>
+    <HTA:APPLICATION 
+        ID="oFileOrganizer"
+        APPLICATIONNAME="FileOrganizer"
+        BORDER="thin"
+        BORDERSTYLE="normal"
+        CAPTION="yes"
+        ICON=""
+        MAXIMIZEBUTTON="no"
+        MINIMIZEBUTTON="yes"
+        SHOWINTASKBAR="yes"
+        SINGLEINSTANCE="yes"
+        SYSMENU="yes"
+        VERSION="1.0"
+        WINDOWSTATE="normal"
+        SCROLL="no"
+    />
+    <meta http-equiv="x-ua-compatible" content="ie=9">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 13px;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #121824;
+            color: #E2E8F0;
+            user-select: none;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        h2 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #F8FAFC;
+        }
+        p.subtitle {
+            margin: 0 0 16px 0;
+            color: #94A3B8;
+            font-size: 12px;
+        }
+        .card {
+            background-color: #1E293B;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #334155;
+            margin-bottom: 14px;
+        }
+        .form-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 8px 12px;
+            background-color: #0F172A;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #F8FAFC;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #38BDF8;
+        }
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary {
+            background-color: #334155;
+            color: #F8FAFC;
+        }
+        .btn-secondary:hover {
+            background-color: #475569;
+        }
+        .btn-primary {
+            background-color: #2563EB;
+            color: #FFFFFF;
+        }
+        .btn-primary:hover {
+            background-color: #1D4ED8;
+        }
+        .btn-primary:disabled {
+            background-color: #1E3A8A;
+            color: #64748B;
+            cursor: not-allowed;
+        }
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 14px;
+        }
+        .log-box {
+            background-color: #020617;
+            border: 1px solid #1E293B;
+            border-radius: 6px;
+            padding: 10px;
+            height: 180px;
+            overflow-y: auto;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .log-info { color: #38BDF8; }
+        .log-success { color: #4ADE80; }
+        .log-warn { color: #FBBF24; }
+        .log-err { color: #F87171; }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h2>Directory Organizer</h2>
+    <p class="subtitle">Scans directory and groups files matching "postpone" and "decline" into subfolders.</p>
+
+    <div class="card">
+        <label style="display:block; margin-bottom: 6px; font-weight: 500;">Target Directory</label>
+        <div class="form-group">
+            <input type="text" id="targetDir" placeholder="Select or paste base directory path..." />
+            <button class="btn-secondary" onclick="ChooseFolder()">Browse</button>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button id="runBtn" class="btn-primary" onclick="ExecuteSorting()">Organize Files</button>
+    </div>
+
+    <div class="log-box" id="logPanel">
+        <div class="log-info">[Ready] Select a directory to begin.</div>
+    </div>
+</div>
+
+<script language="VBScript">
+    Sub Window_OnLoad
+        window.resizeTo 620, 480
+        Dim screenW, screenH
+        screenW = screen.availWidth
+        screenH = screen.availHeight
+        window.moveTo (screenW - 620) / 2, (screenH - 480) / 2
+    End Sub
+
+    Sub LogMessage(text, msgType)
+        Dim panel, line
+        Set panel = document.getElementById("logPanel")
+        Set line = document.createElement("div")
+        
+        Select Case LCase(msgType)
+            Case "success": line.className = "log-success"
+            Case "warn":    line.className = "log-warn"
+            Case "err":     line.className = "log-err"
+            Case Else:      line.className = "log-info"
+        End Select
+        
+        line.innerText = "[" & Time & "] " & text
+        panel.appendChild(line)
+        panel.scrollTop = panel.scrollHeight
+    End Sub
+
+    Sub ChooseFolder()
+        On Error Resume Next
+        Dim shellApp, folderItem
+        Set shellApp = CreateObject("Shell.Application")
+        Set folderItem = shellApp.BrowseForFolder(0, "Select Base Directory to Sort:", &H0010 + &H0001, 0)
+        
+        If Not folderItem Is Nothing Then
+            document.getElementById("targetDir").value = folderItem.Self.Path
+            LogMessage "Selected folder: " & folderItem.Self.Path, "info"
+        End If
+        Set shellApp = Nothing
+        Set folderItem = Nothing
+    End Sub
+
+    Sub ExecuteSorting()
+        Dim basePath, fso, baseFolder, file, fileName
+        Dim postponeDir, declineDir
+        Dim movedPostpone, movedDecline, totalEvaluated
+        
+        basePath = Trim(document.getElementById("targetDir").value)
+        If basePath = "" Then
+            MsgBox "Please select or enter a valid directory path.", vbExclamation, "Path Missing"
+            Exit Sub
+        End If
+
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        
+        If Not fso.FolderExists(basePath) Then
+            LogMessage "Directory does not exist: " & basePath, "err"
+            MsgBox "The specified folder does not exist.", vbCritical, "Error"
+            Set fso = Nothing
+            Exit Sub
+        End If
+
+        document.getElementById("runBtn").disabled = True
+        LogMessage "Starting file audit...", "info"
+
+        ' Ensure target destination directories exist
+        postponeDir = fso.BuildPath(basePath, "postpone")
+        declineDir = fso.BuildPath(basePath, "decline")
+
+        On Error Resume Next
+        If Not fso.FolderExists(postponeDir) Then
+            fso.CreateFolder(postponeDir)
+            LogMessage "Created folder: \postpone", "info"
+        End If
+        If Not fso.FolderExists(declineDir) Then
+            fso.CreateFolder(declineDir)
+            LogMessage "Created folder: \decline", "info"
+        End If
+
+        Set baseFolder = fso.GetFolder(basePath)
+        movedPostpone = 0
+        movedDecline = 0
+        totalEvaluated = 0
+
+        ' Process files residing directly in the base directory
+        For Each file In baseFolder.Files
+            totalEvaluated = totalEvaluated + 1
+            fileName = file.Name
+            
+            ' Match criteria (case-insensitive)
+            Dim isPostpone, isDecline
+            isPostpone = (InStr(1, fileName, "postpone", vbTextCompare) > 0)
+            isDecline  = (InStr(1, fileName, "decline", vbTextCompare) > 0)
+            
+            If isPostpone And isDecline Then
+                ' Handles corner case where filename contains both terms
+                LogMessage "Skipped (matches both rules): " & fileName, "warn"
+            ElseIf isPostpone Then
+                If MoveSafe(fso, file, postponeDir) Then
+                    movedPostpone = movedPostpone + 1
+                    LogMessage "Moved to postpone: " & fileName, "success"
+                End If
+            ElseIf isDecline Then
+                If MoveSafe(fso, file, declineDir) Then
+                    movedDecline = movedDecline + 1
+                    LogMessage "Moved to decline: " & fileName, "success"
+                End If
+            End If
+        Next
+
+        LogMessage "Complete. Evaluated: " & totalEvaluated & " | Postponed: " & movedPostpone & " | Declined: " & movedDecline, "info"
+        document.getElementById("runBtn").disabled = False
+        Set fso = Nothing
+    End Sub
+
+    ' Moves a file and resolves duplicate file name collisions automatically
+    Function MoveSafe(fso, fileObj, destDir)
+        On Error Resume Next
+        Dim destPath, baseName, ext, counter
+        
+        destPath = fso.BuildPath(destDir, fileObj.Name)
+        baseName = fso.GetBaseName(fileObj.Name)
+        ext = fso.GetExtensionName(fileObj.Name)
+        If ext <> "" Then ext = "." & ext
+        
+        counter = 1
+        Do While fso.FileExists(destPath)
+            destPath = fso.BuildPath(destDir, baseName & " (" & counter & ")" & ext)
+            counter = counter + 1
+        Loop
+        
+        fileObj.Move destPath
+        
+        If Err.Number <> 0 Then
+            LogMessage "Failed to move '" & fileObj.Name & "': " & Err.Description, "err"
+            Err.Clear
+            MoveSafe = False
+        Else
+            MoveSafe = True
+        End If
+    End Function
+</script>
+</body>
+</html>
